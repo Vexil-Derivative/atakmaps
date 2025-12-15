@@ -1,0 +1,4 @@
+outputs/
+projects/mvum/inputs/
+*.zip
+__pycache__/
