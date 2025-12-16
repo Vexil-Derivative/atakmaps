@@ -4,7 +4,7 @@ ATAK Map Projects
 This repo holds various ATAK-related map projects and may drift over time as different data/maps are used. Each project lives in its own folder under `projects/`.
 
 Projects
-- MVUM — Motor Vehicle Use Map export to ATAK KML/KMZ (roads/trails, labels, access legend). Requires MVUM roads/trails shapefiles placed in `projects/mvum/inputs/` (not tracked in git); see `projects/mvum/readme.md` for details.
+- USFS MVUM — Motor Vehicle Use Map export to ATAK KML/KMZ (roads/trails, labels, access legend). Requires MVUM roads/trails shapefiles placed in `projects/mvum/inputs/` (not tracked in git); see `projects/mvum/readme.md` for details.
 
 
 #Links

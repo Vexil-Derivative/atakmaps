@@ -96,6 +96,25 @@ def run_export_with_gdal(
     print("KML export complete.")
 
 
+def has_features(shp_path: Path, bbox: tuple[float, float, float, float] | None) -> bool:
+    """Return True if the shapefile has at least one feature within an optional bbox."""
+    ds = ogr.Open(str(shp_path))
+    if ds is None or ds.GetLayerCount() == 0:
+        return False
+    layer = ds.GetLayer(0)
+    if bbox:
+        layer.SetSpatialFilterRect(*bbox)
+    count = layer.GetFeatureCount()
+    layer.SetSpatialFilter(None)
+    return count > 0
+
+
+def delete_kmls(paths: list[Path]) -> None:
+    """Remove any KML/KMZ files in the provided iterable."""
+    for p in {Path(path) for path in paths if path}:
+        p.unlink(missing_ok=True)
+
+
 def _find_simpledata_value(placemark: ET.Element, field_name: str) -> str | None:
     """
     Look for:
@@ -639,6 +658,12 @@ def inject_description_table(kml_path: str) -> int:
             v = (val or "").strip().lower()
             return "🟢" if v and v not in {"no", "closed"} else "🔴"
 
+        def normalize_date(val: str | None) -> str:
+            if not val:
+                return ""
+            v = val.strip()
+            return "Open" if v == "01/01-12/31" else v
+
         def first_nonempty(field_names: list[str]) -> str | None:
             for fname in field_names:
                 val = _find_simpledata_value(pm, fname)
@@ -684,7 +709,7 @@ def inject_description_table(kml_path: str) -> int:
             f"<tr>"
             f"<td>{flag(first_nonempty(allow_fields))}</td>"
             f"<td>{label}</td>"
-            f"<td style=\"white-space:nowrap;width:200px;\">{first_nonempty(date_fields) or ''}</td>"
+            f"<td style=\"white-space:nowrap;width:200px;\">{normalize_date(first_nonempty(date_fields))}</td>"
             f"</tr>"
             for (label, allow_fields, date_fields) in access_rows
         )
@@ -708,7 +733,7 @@ def inject_description_table(kml_path: str) -> int:
             continue
 
         # Priority order for display.
-        priority = ["NAME_LONG", "GIS_MILES", "SEASONAL", "FORESTNAME"]
+        priority = ["ID", "NAME", "NAME_LONG", "GIS_MILES", "SEASONAL", "FORESTNAME"]
         rows: list[str] = []
         seen = set()
 
@@ -856,4 +881,3 @@ def combine_kml_layers(trails_kml: str, roads_kml: str, out_kml: str, doc_name: 
             desc.text = _CDATA(desc.text)
 
     ET.ElementTree(root).write(out_kml, encoding="utf-8", xml_declaration=True)
-
