@@ -25,7 +25,7 @@ from state_bboxes import DEFAULT_STATES, STATE_BBOXES
 # ---------------------------
 # CONFIG
 # ---------------------------
-RUN_ALL_STATES = False
+RUN_ALL_STATES = True
 LABEL_FIELDS: list[str] = ["TRAIL_NO", "TRAIL_NAME"]
 LINE_COLOR = "ff00ffff"  # bright cyan (AABBGGRR) to distinguish non-motorized
 LINE_WIDTH = "2"

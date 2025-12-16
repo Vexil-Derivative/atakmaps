@@ -7,7 +7,7 @@ This repo holds various ATAK-related map projects and may drift over time as dif
 - USFS MVUM — Motor Vehicle Use Map export to ATAK KML/KMZ (roads/trails, labels, access legend). Requires MVUM roads/trails shapefiles placed in `projects/mvum/inputs/`; see `projects/mvum/readme.md`.
 - USFS Trails (non-motorized) — Exports the USFS TrailNFS_Publish dataset as per-state KMZs for hiking/bike/snow; motorized segments are filtered out because MVUM covers those. Input shapefile lives in `projects/usfs/inputs/`; see `projects/usfs/readme.md`.
 - Colorado CoTrip traffic cameras — built so ATAK users can view Colorado CoTrip camera feeds (https://maps.cotrip.org/list/events) in-app. `projects/colorado-traffic-cameras/cotrip.py` pulls all camera coordinates and HLS URLs from the CoTrip APIs into `co_cotrip_cameras.json`, and `convert_cot.py` turns that into a CoT mission package for ATAK.
-- Colorado Hunting GMUs — export Colorado Game Management Units to ATAK KMZ. Download the GMU shapefile from https://geodata.colorado.gov/datasets/2c0794ece2ee4c8d9ac1f64cda8d0216_0/explore into `projects/colorado-hunting/inputs/`, then run `projects/colorado-hunting/main.py`.
+- Colorado Hunting GMUs — export Colorado Game Management Units to ATAK KMZ; see `projects/colorado-hunting/README.md` for data download and run steps.
 
 
 ## Links

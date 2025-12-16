@@ -17,5 +17,7 @@ From this folder:
 
 If you have a newer JSON export, replace `co_cotrip_cameras.json` then rerun the scripts. Delete or ignore old files in `outputs/` if you want a clean drop.***
 
+Note: the output is a CoT mission data package (ZIP with `.cot` files), not a KML/KMZ. Import the ZIP into ATAK as a data package to see the camera markers and launch HLS streams.
+
 ## Screenshot
 - <img src="../../pics/webcam.jpg" alt="ATAK CoTrip camera feed overlay" width="1024" />
