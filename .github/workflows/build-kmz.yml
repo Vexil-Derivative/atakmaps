@@ -33,30 +33,50 @@ jobs:
           mkdir -p projects/mvum/inputs projects/usfs/inputs
 
           base_mvum="https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer"
-          base_trails="https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_TrailNFS_Publish_01/MapServer"
+          base_trails="https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_TrailNFSPublish_01/MapServer"
 
           # Hash on IDs to detect source changes without storing full data.
-          curl -s "${base_mvum}/0/query?where=1%3D1&returnIdsOnly=true&f=json" -o /tmp/mvum_trails_ids.json
           curl -s "${base_mvum}/1/query?where=1%3D1&returnIdsOnly=true&f=json" -o /tmp/mvum_roads_ids.json
+          curl -s "${base_mvum}/2/query?where=1%3D1&returnIdsOnly=true&f=json" -o /tmp/mvum_trails_ids.json
           curl -s "${base_trails}/0/query?where=1%3D1&returnIdsOnly=true&f=json" -o /tmp/usfs_trails_ids.json
           hash=$(cat /tmp/mvum_trails_ids.json /tmp/mvum_roads_ids.json /tmp/usfs_trails_ids.json | sha256sum | cut -d' ' -f1)
           echo "INPUT_HASH=$hash" >> "$GITHUB_ENV"
 
-          # Fetch data via OGR with paging (ESRIJSON)
-          ogr2ogr -overwrite -f "ESRI Shapefile" \
-            projects/mvum/inputs/MVUM_Symbology_-_Motor_Vehicle_Use_Map_Trails.shp \
-            "ESRIJSON:${base_mvum}/0/query?where=1%3D1&outFields=*&f=json" \
-            -oo PAGING=YES -oo PAGE_SIZE=2000
+          fetch_layer() {
+            local url_base="$1" layer="$2" dest="$3" name="$4"
+            local offset=0 page=0
+            rm -f "${dest%.*}".*
+            while true; do
+              url="${url_base}/${layer}/query?where=1%3D1&outFields=*&returnGeometry=true&outSR=4326&f=geojson&resultOffset=${offset}&resultRecordCount=2000"
+              tmp="/tmp/${name}_page_${offset}.geojson"
+              curl -s "$url" -o "$tmp"
+              count=$(python3 - <<PY
+import json,sys
+data=json.load(open("$tmp"))
+print(len(data.get("features",[])))
+PY
+)
+              if [ "$count" -eq 0 ]; then break; fi
+              if [ "$page" -eq 0 ]; then
+                ogr2ogr -overwrite -f "ESRI Shapefile" "$dest" "$tmp"
+              else
+                ogr2ogr -append -f "ESRI Shapefile" "$dest" "$tmp" -nln "$(basename "$dest" .shp)"
+              fi
+              exceed=$(python3 - <<PY
+import json
+data=json.load(open("$tmp"))
+print(str(data.get("exceededTransferLimit", False)).lower())
+PY
+)
+              if [ "$exceed" != "true" ]; then break; fi
+              offset=$((offset+2000))
+              page=$((page+1))
+            done
+          }
 
-          ogr2ogr -overwrite -f "ESRI Shapefile" \
-            projects/mvum/inputs/MVUM_Symbology_-_Motor_Vehicle_Use_Map_Roads.shp \
-            "ESRIJSON:${base_mvum}/1/query?where=1%3D1&outFields=*&f=json" \
-            -oo PAGING=YES -oo PAGE_SIZE=2000
-
-          ogr2ogr -overwrite -f "ESRI Shapefile" \
-            "projects/usfs/inputs/National_Forest_System_Trails_(Feature_Layer).shp" \
-            "ESRIJSON:${base_trails}/0/query?where=1%3D1&outFields=*&f=json" \
-            -oo PAGING=YES -oo PAGE_SIZE=2000
+          fetch_layer "$base_mvum" 1 projects/mvum/inputs/MVUM_Symbology_-_Motor_Vehicle_Use_Map_Roads.shp mvum_roads
+          fetch_layer "$base_mvum" 2 projects/mvum/inputs/MVUM_Symbology_-_Motor_Vehicle_Use_Map_Trails.shp mvum_trails
+          fetch_layer "$base_trails" 0 "projects/usfs/inputs/National_Forest_System_Trails_(Feature_Layer).shp" usfs_trails
 
       - name: Restore cached site for unchanged inputs
         id: cache-site
