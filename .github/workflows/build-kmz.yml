@@ -46,7 +46,7 @@ jobs:
           curl -sSf --retry 5 --retry-delay 5 --retry-all-errors "${base_mvum}/2/query?where=1%3D1&returnIdsOnly=true&f=json" -o /tmp/mvum_trails_ids.json
           curl -sSf --retry 5 --retry-delay 5 --retry-all-errors "${base_trails}/0/query?where=1%3D1&returnIdsOnly=true&f=json" -o /tmp/usfs_trails_ids.json
           hash=$(cat /tmp/mvum_trails_ids.json /tmp/mvum_roads_ids.json /tmp/usfs_trails_ids.json | sha256sum | cut -d' ' -f1)
-          echo "INPUT_HASH=$hash" >> "$GITHUB_ENV"
+          echo "INPUT_HASH=${hash}-v2" >> "$GITHUB_ENV"
 
           fetch_layer() {
             local url_base="$1" layer="$2" dest="$3" name="$4"
@@ -83,6 +83,15 @@ jobs:
           curl -sSfL --retry 5 --retry-delay 5 --retry-all-errors --max-time 180 "$url" -o "$tmp"
           unzip -o "$tmp" -d projects/colorado-hunting/inputs
 
+      - name: Fetch Colorado COTREX data
+        run: |
+          set -euo pipefail
+          mkdir -p projects/colorado-cotrex/inputs
+          url="https://www.arcgis.com/sharing/rest/content/items/cae8ed959b8a4ed48680df62b31eec60/data"
+          tmp=/tmp/cotrex.zip
+          curl -sSfL --retry 5 --retry-delay 5 --retry-all-errors --max-time 600 "$url" -o "$tmp"
+          unzip -o "$tmp" -d projects/colorado-cotrex/inputs
+
       - name: Restore cached site for unchanged inputs
         id: cache-site
         uses: actions/cache@v4
@@ -102,15 +111,69 @@ jobs:
         if: steps.cache-site.outputs.cache-hit != 'true'
         run: python3 projects/colorado-hunting/main.py
 
+      - name: Build Colorado COTREX KMZs
+        if: steps.cache-site.outputs.cache-hit != 'true'
+        run: python3 projects/colorado-cotrex/main.py
+
       - name: Collect site artifacts
         if: steps.cache-site.outputs.cache-hit != 'true'
         run: |
-          mkdir -p site/mvum site/usfs site/colorado-hunting
+          mkdir -p site/mvum site/usfs site/colorado-hunting site/cotrex site/cotrip
           cp -a projects/mvum/outputs/. site/mvum/ || true
           cp -a projects/usfs/outputs/. site/usfs/ || true
           cp -a projects/colorado-hunting/outputs/. site/colorado-hunting/ || true
-          echo "Build completed on $(date -u)" > site/index.html
+          cp -a projects/colorado-cotrex/outputs/. site/cotrex/ || true
+          cp -a projects/colorado-traffic-cameras/outputs/. site/cotrip/ || true
           find site -type f | sort > site/manifest.txt
+          python3 - <<'PY'
+          import time
+          from pathlib import Path
+
+          root = Path("site")
+          manifest = []
+          for path in sorted(root.rglob("*")):
+              if path.is_file():
+                  stat = path.stat()
+                  rel = path.relative_to(root)
+                  manifest.append((str(rel), stat.st_mtime, stat.st_size))
+
+          def human_size(n):
+              for unit in ["B","KB","MB","GB"]:
+                  if n < 1024:
+                      return f"{n:.1f} {unit}"
+                  n /= 1024
+              return f"{n:.1f} TB"
+
+          def section(title, predicate):
+              rows = [(f, m, s) for f,m,s in manifest if predicate(f)]
+              if not rows:
+                  return ""
+              lines = [f"<h2>{title}</h2>", "<table><tr><th>File</th><th>Last updated (UTC)</th><th>Size</th></tr>"]
+              for f, m, s in rows:
+                  ts = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(m))
+                  lines.append(f"<tr><td><a href=\"{f}\">{f}</a></td><td>{ts}</td><td>{human_size(s)}</td></tr>")
+              lines.append("</table>")
+              return "\n".join(lines)
+
+          body = []
+          body.append("<h1>ATAK Maps</h1>")
+          body.append(f"<p>Build completed on {time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime())} UTC</p>")
+          body.append(section("USFS MVUM", lambda f: f.startswith("mvum/")))
+          body.append(section("USFS Trails (non-motorized)", lambda f: f.startswith("usfs/")))
+          body.append(section("Colorado GMUs / Land Ownership", lambda f: f.startswith("colorado-hunting/")))
+          body.append(section("Colorado COTREX", lambda f: f.startswith("cotrex/")))
+          body.append(section("Colorado CoTrip Cameras (CoT packages)", lambda f: f.startswith("cotrip/")))
+
+          html = "\n".join([
+              "<!doctype html>",
+              "<html><head><meta charset='utf-8'><title>ATAK Maps</title>",
+              "<style>body{font-family:Arial, sans-serif;padding:20px;}table{border-collapse:collapse;width:100%;max-width:1100px;}th,td{padding:6px 8px;border:1px solid #ddd;}th{text-align:left;background:#f2f2f2;}tr:nth-child(even){background:#fafafa;}h1,h2{margin-top:24px;}</style>",
+              "</head><body>",
+              *body,
+              "</body></html>"
+          ])
+          Path("site/index.html").write_text(html, encoding="utf-8")
+          PY
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
