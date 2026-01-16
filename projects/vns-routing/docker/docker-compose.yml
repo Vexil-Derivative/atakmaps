@@ -1,0 +1,28 @@
+version: "3.9"
+
+services:
+  osrm:
+    image: osrm/osrm-backend:v5.27.0
+    container_name: vns-osrm
+    command: ["osrm-routed", "--algorithm", "mld", "/data/${OSRM_REGION}.osrm"]
+    ports:
+      - "${OSRM_PORT:-5000}:5000"
+    volumes:
+      - ../${OSRM_DATA_ROOT:-data/osm}/${OSRM_REGION}:/data:ro
+    restart: unless-stopped
+
+  gh-file-server:
+    image: python:3.11-slim
+    container_name: vns-ghz-files
+    working_dir: /srv
+    command: ["python", "-m", "http.server", "8081"]
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ../${GH_DATA_ROOT:-data/osm}:/srv:ro
+    ports:
+      - "${GH_FILESERVER_PORT:-8081}:8081"
+    restart: unless-stopped
+
+# Optional: add an API/auth layer here if needed by VNS clients. Use a second compose file
+# to layer authentication (mongo/ad) and TLS.

@@ -1,0 +1,15 @@
+graphhopper:
+  datareader.file: /data/co.osm.pbf
+  graph.location: /data/graph-cache
+  graph.encoded_values: surface,road_class,road_environment,max_speed
+  profiles:
+    - name: car
+      vehicle: car
+      weighting: custom
+      custom_model_file: /data/gh-mvum.json
+      turn_costs: false
+  prepare.ch.weightings: []
+  prepare.lm.weightings: []
+  routing.ch.disabling_allowed: true
+  routing.lm.disabling_allowed: true
+  import.osm.ignored_highways: footway,cycleway,path,steps

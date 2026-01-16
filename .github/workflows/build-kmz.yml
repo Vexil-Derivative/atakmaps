@@ -1,0 +1,62 @@
+name: Build KMZs and Deploy to Pages
+
+on:
+  schedule:
+    - cron: "0 9 * * 1" # Mondays at 09:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  actions: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install GDAL + dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gdal-bin python3-gdal python3-pip zip
+
+      - name: Build MVUM KMZs
+        run: python3 projects/mvum/main.py
+
+      - name: Build USFS trails KMZs
+        run: python3 projects/usfs/main.py
+
+      - name: Build Colorado GMU KMZ
+        run: python3 projects/colorado-hunting/main.py
+
+      - name: Collect site artifacts
+        run: |
+          mkdir -p site/mvum site/usfs site/colorado-hunting
+          cp -a projects/mvum/outputs/. site/mvum/ || true
+          cp -a projects/usfs/outputs/. site/usfs/ || true
+          cp -a projects/colorado-hunting/outputs/. site/colorado-hunting/ || true
+          echo "Build completed on $(date -u)" > site/index.html
+          find site -type f | sort > site/manifest.txt
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4

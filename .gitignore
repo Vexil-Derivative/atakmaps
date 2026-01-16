@@ -4,3 +4,10 @@ projects/mvum/inputs/
 __pycache__/
 .DS_Store
 inputs/
+# VNS routing data artifacts (keep data local only)
+projects/vns-routing/data/**/*.pbf
+projects/vns-routing/data/**/graph-cache/
+projects/vns-routing/data/**/*.ghz
+projects/vns-routing/data/**/*.osrm*
+projects/vns-routing/data/**/*.poly
+projects/vns-routing/data/**/*.timestamp
