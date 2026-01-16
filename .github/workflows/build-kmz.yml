@@ -32,21 +32,31 @@ jobs:
           set -euo pipefail
           mkdir -p projects/mvum/inputs projects/usfs/inputs
 
-          # MVUM Trails (layer 0)
-          curl -L "https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/0/query?where=1%3D1&outFields=*&f=geojson" -o /tmp/mvum_trails.geojson
-          ogr2ogr -overwrite -f "ESRI Shapefile" projects/mvum/inputs/MVUM_Symbology_-_Motor_Vehicle_Use_Map_Trails.shp /tmp/mvum_trails.geojson
+          base_mvum="https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer"
+          base_trails="https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_TrailNFS_Publish_01/MapServer"
 
-          # MVUM Roads (layer 1)
-          curl -L "https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/1/query?where=1%3D1&outFields=*&f=geojson" -o /tmp/mvum_roads.geojson
-          ogr2ogr -overwrite -f "ESRI Shapefile" projects/mvum/inputs/MVUM_Symbology_-_Motor_Vehicle_Use_Map_Roads.shp /tmp/mvum_roads.geojson
-
-          # USFS TrailNFS Publish (non-motorized)
-          curl -L "https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_TrailNFS_Publish_01/MapServer/0/query?where=1%3D1&outFields=*&f=geojson" -o /tmp/usfs_trails.geojson
-          ogr2ogr -overwrite -f "ESRI Shapefile" "projects/usfs/inputs/National_Forest_System_Trails_(Feature_Layer).shp" /tmp/usfs_trails.geojson
-
-          # Compute input hash to skip rebuilds if unchanged.
-          hash=$(cat /tmp/mvum_trails.geojson /tmp/mvum_roads.geojson /tmp/usfs_trails.geojson | sha256sum | cut -d' ' -f1)
+          # Hash on IDs to detect source changes without storing full data.
+          curl -s "${base_mvum}/0/query?where=1%3D1&returnIdsOnly=true&f=json" -o /tmp/mvum_trails_ids.json
+          curl -s "${base_mvum}/1/query?where=1%3D1&returnIdsOnly=true&f=json" -o /tmp/mvum_roads_ids.json
+          curl -s "${base_trails}/0/query?where=1%3D1&returnIdsOnly=true&f=json" -o /tmp/usfs_trails_ids.json
+          hash=$(cat /tmp/mvum_trails_ids.json /tmp/mvum_roads_ids.json /tmp/usfs_trails_ids.json | sha256sum | cut -d' ' -f1)
           echo "INPUT_HASH=$hash" >> "$GITHUB_ENV"
+
+          # Fetch data via OGR with paging (ESRIJSON)
+          ogr2ogr -overwrite -f "ESRI Shapefile" \
+            projects/mvum/inputs/MVUM_Symbology_-_Motor_Vehicle_Use_Map_Trails.shp \
+            "ESRIJSON:${base_mvum}/0/query?where=1%3D1&outFields=*&f=json" \
+            -oo PAGING=YES -oo PAGE_SIZE=2000
+
+          ogr2ogr -overwrite -f "ESRI Shapefile" \
+            projects/mvum/inputs/MVUM_Symbology_-_Motor_Vehicle_Use_Map_Roads.shp \
+            "ESRIJSON:${base_mvum}/1/query?where=1%3D1&outFields=*&f=json" \
+            -oo PAGING=YES -oo PAGE_SIZE=2000
+
+          ogr2ogr -overwrite -f "ESRI Shapefile" \
+            "projects/usfs/inputs/National_Forest_System_Trails_(Feature_Layer).shp" \
+            "ESRIJSON:${base_trails}/0/query?where=1%3D1&outFields=*&f=json" \
+            -oo PAGING=YES -oo PAGE_SIZE=2000
 
       - name: Restore cached site for unchanged inputs
         id: cache-site
