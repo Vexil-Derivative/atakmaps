@@ -56,26 +56,28 @@ jobs:
               url="${url_base}/${layer}/query?where=1%3D1&outFields=*&returnGeometry=true&outSR=4326&f=geojson&resultOffset=${offset}&resultRecordCount=2000"
               tmp="/tmp/${name}_page_${offset}.geojson"
               curl -s "$url" -o "$tmp"
-              count=$(python3 - <<PY
-import json,sys
-with open("$tmp") as f:
-    data=json.load(f)
-print(len(data.get("features",[])))
+              count=$(python3 - <<'PY'
+import json
+import sys
+with open(sys.argv[1]) as f:
+    data = json.load(f)
+print(len(data.get("features", [])))
 PY
-)
+ "$tmp")
               if [ "$count" -eq 0 ]; then break; fi
               if [ "$page" -eq 0 ]; then
                 ogr2ogr -overwrite -f "ESRI Shapefile" "$dest" "$tmp"
               else
                 ogr2ogr -append -f "ESRI Shapefile" "$dest" "$tmp" -nln "$(basename "$dest" .shp)"
               fi
-              exceed=$(python3 - <<PY
+              exceed=$(python3 - <<'PY'
 import json
-with open("$tmp") as f:
-    data=json.load(f)
+import sys
+with open(sys.argv[1]) as f:
+    data = json.load(f)
 print(str(data.get("exceededTransferLimit", False)).lower())
 PY
-)
+ "$tmp")
               if [ "$exceed" != "true" ]; then break; fi
               offset=$((offset+2000))
               page=$((page+1))
