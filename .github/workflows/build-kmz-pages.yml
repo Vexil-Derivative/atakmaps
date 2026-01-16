@@ -1,6 +1,10 @@
 name: Build KMZs and Deploy to Pages
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/build-kmz-pages.yml
   schedule:
     - cron: "0 9 * * 1" # Mondays at 09:00 UTC
   workflow_dispatch:
