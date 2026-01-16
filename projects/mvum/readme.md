@@ -23,8 +23,8 @@ Screenshots
 How to run
 1) Install GDAL/OGR with Python bindings (ogrinfo/VectorTranslate available in PATH). On macOS with Homebrew: `brew install gdal`.
 2) Download the MVUM shapefiles and place them in `inputs/` (extract the zips so all components are together):
-   - Trails: https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/0 (export as Shapefile)
-   - Roads:  https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/1 (export as Shapefile)
+   - Trails: https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/2 (export as Shapefile) or Hub direct download: https://hub.arcgis.com/api/v3/datasets/df457ae59c774e979bceb46ccf3de24f_2/downloads/data?format=shp&spatialRefId=4269&where=1%3D1
+   - Roads:  https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/1 (export as Shapefile) or Hub direct download: https://hub.arcgis.com/api/v3/datasets/df457ae59c774e979bceb46ccf3de24f_1/downloads/data?format=shp&spatialRefId=4269&where=1%3D1
 3) Adjust config at the top of `main.py` if needed:
    - `RUN_ALL_STATES`: keep True to process all bounding boxes in `STATE_BBOXES`; set False and edit `DEFAULT_STATES` for a subset.
    - `STATE_BBOXES`: per-state bounding boxes (minx, miny, maxx, maxy) for CONUS + AK/HI.

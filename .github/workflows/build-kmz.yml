@@ -31,7 +31,7 @@ jobs:
       - name: Install GDAL + dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y gdal-bin python3-gdal python3-pip zip
+          sudo apt-get install -y gdal-bin python3-gdal python3-pip zip unzip
 
       - name: Fetch source data (MVUM + TrailNFS)
         run: |
@@ -42,9 +42,9 @@ jobs:
           base_trails="https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_TrailNFSPublish_01/MapServer"
 
           # Hash on IDs to detect source changes without storing full data.
-          curl -s "${base_mvum}/1/query?where=1%3D1&returnIdsOnly=true&f=json" -o /tmp/mvum_roads_ids.json
-          curl -s "${base_mvum}/2/query?where=1%3D1&returnIdsOnly=true&f=json" -o /tmp/mvum_trails_ids.json
-          curl -s "${base_trails}/0/query?where=1%3D1&returnIdsOnly=true&f=json" -o /tmp/usfs_trails_ids.json
+          curl -sSf --retry 5 --retry-delay 5 --retry-all-errors "${base_mvum}/1/query?where=1%3D1&returnIdsOnly=true&f=json" -o /tmp/mvum_roads_ids.json
+          curl -sSf --retry 5 --retry-delay 5 --retry-all-errors "${base_mvum}/2/query?where=1%3D1&returnIdsOnly=true&f=json" -o /tmp/mvum_trails_ids.json
+          curl -sSf --retry 5 --retry-delay 5 --retry-all-errors "${base_trails}/0/query?where=1%3D1&returnIdsOnly=true&f=json" -o /tmp/usfs_trails_ids.json
           hash=$(cat /tmp/mvum_trails_ids.json /tmp/mvum_roads_ids.json /tmp/usfs_trails_ids.json | sha256sum | cut -d' ' -f1)
           echo "INPUT_HASH=$hash" >> "$GITHUB_ENV"
 
@@ -55,7 +55,7 @@ jobs:
             while true; do
               url="${url_base}/${layer}/query?where=1%3D1&outFields=*&returnGeometry=true&outSR=4326&f=geojson&resultOffset=${offset}&resultRecordCount=2000"
               tmp="/tmp/${name}_page_${offset}.geojson"
-              curl -s "$url" -o "$tmp"
+              curl -sSf --retry 5 --retry-delay 5 --retry-all-errors --max-time 120 "$url" -o "$tmp"
               count=$(python3 - "$tmp" -c "import json,sys; data=json.load(open(sys.argv[1])); print(len(data.get('features', [])))")
               if [ "$count" -eq 0 ]; then break; fi
               if [ "$page" -eq 0 ]; then
@@ -73,6 +73,15 @@ jobs:
           fetch_layer "$base_mvum" 1 projects/mvum/inputs/MVUM_Symbology_-_Motor_Vehicle_Use_Map_Roads.shp mvum_roads
           fetch_layer "$base_mvum" 2 projects/mvum/inputs/MVUM_Symbology_-_Motor_Vehicle_Use_Map_Trails.shp mvum_trails
           fetch_layer "$base_trails" 0 "projects/usfs/inputs/National_Forest_System_Trails_(Feature_Layer).shp" usfs_trails
+
+      - name: Fetch Colorado GMU shapefile
+        run: |
+          set -euo pipefail
+          mkdir -p projects/colorado-hunting/inputs
+          url="https://hub.arcgis.com/api/v3/datasets/2c0794ece2ee4c8d9ac1f64cda8d0216_0/downloads/data?format=shp&spatialRefId=3857&where=1%3D1"
+          tmp=/tmp/co_gmu.zip
+          curl -sSfL --retry 5 --retry-delay 5 --retry-all-errors --max-time 180 "$url" -o "$tmp"
+          unzip -o "$tmp" -d projects/colorado-hunting/inputs
 
       - name: Restore cached site for unchanged inputs
         id: cache-site
