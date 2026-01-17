@@ -354,9 +354,11 @@ def embed_label_points_wgs84(shp_path: str, kml_path: str, label_fields: list[st
         obj_id = feat.GetField(id_field) if id_field else None
         label_val = None
         for fld in label_fields:
-            label_val = feat.GetField(fld)
-            if label_val:
-                label_val = str(label_val)
+            if defn.GetFieldIndex(fld) == -1:
+                continue
+            val = feat.GetField(fld)
+            if val:
+                label_val = str(val)
                 break
         manager_val = feat.GetField("manager")
         if manager_val and _is_usfs_manager(str(manager_val)):
