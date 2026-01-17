@@ -36,7 +36,6 @@ How to run
 
 Prebuilt maps (no build needed)
 - Grab the latest release: <https://github.com/OpenMANET/atakmaps/releases>
-- Direct GitHub Pages link for Colorado: https://<your-gh-username>.github.io/atakmaps/mvum/MVUM_CO.kmz
 - Download `MVUM_states.zip`, unzip it, and import the state KMZ files into ATAK. Importing one state's KMZ at a time tends to perform best.
 
 Notes
