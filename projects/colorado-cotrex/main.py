@@ -336,25 +336,43 @@ def embed_label_points_wgs84(shp_path: str, kml_path: str, label_fields: list[st
     src_srs = layer.GetSpatialRef()
     if src_srs is None:
         raise RuntimeError("Shapefile missing spatial reference.")
+    defn = layer.GetLayerDefn()
+    fields = [defn.GetFieldDefn(i).GetName() for i in range(defn.GetFieldCount())]
+    id_field = next((f for f in fields if f.upper().startswith("OBJECTID")), None)
+    if not id_field:
+        id_field = next((f for f in fields if f.upper().startswith("FID")), None)
+    if not id_field:
+        id_field = "feature_id" if "feature_id" in fields else (label_fields[0] if label_fields else None)
+
     dst_srs = osr.SpatialReference()
     dst_srs.ImportFromEPSG(4326)
     transform = osr.CoordinateTransformation(src_srs, dst_srs)
 
     centroids: dict[str, tuple[float, float]] = {}
+    centroids_by_label: dict[str, tuple[float, float]] = {}
     for feat in layer:
-        obj_id = feat.GetField("OBJECTID")
+        obj_id = feat.GetField(id_field) if id_field else None
+        label_val = None
+        for fld in label_fields:
+            label_val = feat.GetField(fld)
+            if label_val:
+                label_val = str(label_val)
+                break
         manager_val = feat.GetField("manager")
         if manager_val and _is_usfs_manager(str(manager_val)):
             continue
         geom = feat.GetGeometryRef()
-        if obj_id is None or geom is None or geom.IsEmpty():
+        if geom is None or geom.IsEmpty():
             continue
         try:
             pt = geom.Centroid()
             if pt is None or pt.IsEmpty():
                 continue
             pt.Transform(transform)
-            centroids[str(obj_id)] = (pt.GetX(), pt.GetY())
+            if obj_id is not None:
+                centroids[str(obj_id)] = (pt.GetX(), pt.GetY())
+            if label_val:
+                centroids_by_label[f"{label_val}"] = (pt.GetX(), pt.GetY())
         except RuntimeError:
             continue
 
@@ -364,8 +382,15 @@ def embed_label_points_wgs84(shp_path: str, kml_path: str, label_fields: list[st
 
     updated = 0
     for pm in root.findall(".//{http://www.opengis.net/kml/2.2}Placemark"):
-        obj_id = _find_simpledata_value(pm, "OBJECTID")
+        obj_id = _find_simpledata_value(pm, id_field) if id_field else None
         xy = centroids.get(obj_id) if obj_id else None
+        if xy is None:
+            for fld in label_fields:
+                label_val = _find_simpledata_value(pm, fld)
+                if label_val:
+                    xy = centroids_by_label.get(label_val)
+                    if xy:
+                        break
         if xy is None:
             continue
 
