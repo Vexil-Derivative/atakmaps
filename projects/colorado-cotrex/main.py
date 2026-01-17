@@ -29,8 +29,16 @@ from functions import (  # type: ignore
 
 gdal.UseExceptions()
 
-INPUT_SHP = Path(__file__).resolve().parent / "inputs" / "COTREX_Trails.shp"
-INPUT_SHP_TRAILHEADS = Path(__file__).resolve().parent / "inputs" / "COTREX_Trailheads.shp"
+def _pick_shapefile(candidates: list[str]) -> Path | None:
+    base = Path(__file__).resolve().parent / "inputs"
+    for name in candidates:
+        path = base / name
+        if path.exists():
+            return path
+    return None
+
+INPUT_SHP = _pick_shapefile(["COTREX_Trails.shp", "CPW_Trails.shp"])
+INPUT_SHP_TRAILHEADS = _pick_shapefile(["COTREX_Trailheads.shp", "CPW_Trailheads.shp"])
 OUTPUT_DIR = Path(__file__).resolve().parent / "outputs"
 OUTPUT_KML = OUTPUT_DIR / "COTREX_Trails.kml"
 OUTPUT_KMZ = OUTPUT_DIR / "COTREX_Trails.kmz"
@@ -533,11 +541,11 @@ def split_into_use_layers(kml_path: Path) -> int:
 
 
 def main() -> int:
-    if not INPUT_SHP.exists():
-        print(f"ERROR: missing shapefile: {INPUT_SHP}", file=sys.stderr)
+    if INPUT_SHP is None:
+        print("ERROR: missing trails shapefile (expected COTREX_Trails.shp or CPW_Trails.shp in inputs/)", file=sys.stderr)
         return 2
-    if not INPUT_SHP_TRAILHEADS.exists():
-        print(f"ERROR: missing trailheads shapefile: {INPUT_SHP_TRAILHEADS}", file=sys.stderr)
+    if INPUT_SHP_TRAILHEADS is None:
+        print("ERROR: missing trailheads shapefile (expected COTREX_Trailheads.shp or CPW_Trailheads.shp in inputs/)", file=sys.stderr)
         return 2
 
     export_to_kml()
