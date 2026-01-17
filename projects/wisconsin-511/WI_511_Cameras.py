@@ -1,18 +1,12 @@
-import base64
 import hashlib
 import json
 import os
 import shutil
-import zipfile
-from datetime import datetime
 from html import unescape
 from pathlib import Path
 
 import requests
 from cot import CotDP
-from lxml import etree, objectify
-from pykml import parser
-from pykml.factory import KML_ElementMaker as KML
 
 OUTPUT_DIR = Path(__file__).resolve().parent / "outputs"
 DP_PATH = OUTPUT_DIR / "WI_511_Cameras.zip"
